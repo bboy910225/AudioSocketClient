@@ -73,11 +73,7 @@ jobs:
     - name: Copy ANGLE/OpenGL DLLs into dist
       shell: pwsh
       run: |
-        $pysideDir = python - << 'PY'
-        import pathlib, PySide6
-        print(pathlib.Path(PySide6.__file__).parent)
-        PY
-        $pysideDir = $pysideDir.Trim()
+        $pysideDir = (python -c "import pathlib, PySide6, sys; sys.stdout.write(str(pathlib.Path(PySide6.__file__).parent))")
         $dest = "dist/AudioSocketClient"
         $dlls = @('D3DCompiler_47.dll','libEGL.dll','libGLESv2.dll','opengl32sw.dll')
         foreach ($d in $dlls) {

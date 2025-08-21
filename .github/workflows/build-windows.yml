@@ -20,13 +20,22 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip wheel
-        pip install pyinstaller PySide6 python-socketio websocket-client requests
+        pip install pyinstaller pyinstaller-hooks-contrib PySide6 python-socketio websocket-client requests Pillow
+
+    - name: Prepare icon (ensure valid .ico)
+      shell: pwsh
+      run: |
+        if (Test-Path icon.png) {
+          python -c "from PIL import Image; Image.open('icon.png').save('icon.ico', format='ICO', sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])"
+        }
 
     - name: Build with PyInstaller
       shell: cmd
       run: |
         pyinstaller --name "AudioSocketClient" --windowed --noconfirm ^
           --collect-submodules PySide6 ^
+          --collect-data PySide6 ^
+          --collect-plugins PySide6 ^
           --add-data "app.crt;." ^
           --icon icon.ico ^
           main.py

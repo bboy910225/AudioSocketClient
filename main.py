@@ -34,15 +34,8 @@ class Win(QMainWindow):
             cw = loaded.takeCentralWidget()
             if cw is not None:
                 self.setCentralWidget(cw)
-            # menubar / statusbar: detach first, then attach to self
-            mb = loaded.menuBar()
-            if mb is not None:
-                loaded.setMenuBar(None)
-                self.setMenuBar(mb)
-            sb = loaded.statusBar()
-            if sb is not None:
-                loaded.setStatusBar(None)
-                self.setStatusBar(sb)
+            # NOTE: Skip transferring menuBar/statusBar to avoid ownership/deletion issues.
+            # If you need menus/status later, define them in this subclass or keep them in the .ui and use loaded directly.
             # keep reference so GC won't delete during init
             self._loaded_ui = loaded
         else:

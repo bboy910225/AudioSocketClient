@@ -19,7 +19,7 @@ jobs:
 
       # 第一次可以先產生設定檔；之後專案固定就保留版本控管
       - name: Init deploy config (first time only)
-        if: ${{ !exists('pyside6-deploy.json') }}
+        if: ${{ !hashFiles('pyside6-deploy.json') }}
         shell: cmd
         run: pyside6-deploy --init main.py
 

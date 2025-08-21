@@ -46,8 +46,8 @@ jobs:
         base = getattr(sys, "_MEIPASS", os.path.abspath(os.path.dirname(__file__)))
         candidates = [
             os.path.join(base, "PySide6", "Qt", "plugins", "platforms"),
-            os.path.join(base, "_internal", "PySide6", "plugins", "platforms"),
             os.path.join(base, "_internal", "PySide6", "Qt", "plugins", "platforms"),
+            os.path.join(base, "_internal", "PySide6", "plugins", "platforms"),
         ]
         for p in candidates:
             if os.path.exists(p):
@@ -69,6 +69,26 @@ jobs:
           --add-data "app.crt;." ^
           --icon icon.ico ^
           main.py
+
+    - name: Copy ANGLE/OpenGL DLLs into dist
+      shell: pwsh
+      run: |
+        $pysideDir = python - << 'PY'
+import pathlib, PySide6
+print(pathlib.Path(PySide6.__file__).parent)
+PY
+        $pysideDir = $pysideDir.Trim()
+        $dest = "dist/AudioSocketClient"
+        $dlls = @('D3DCompiler_47.dll','libEGL.dll','libGLESv2.dll','opengl32sw.dll')
+        foreach ($d in $dlls) {
+          $src = Join-Path $pysideDir $d
+          if (Test-Path $src) {
+            Copy-Item $src $dest -Force
+            Write-Host "Copied $d"
+          } else {
+            Write-Warning "Missing $d in $pysideDir"
+          }
+        }
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4

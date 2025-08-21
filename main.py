@@ -1,7 +1,8 @@
 # main.py
 import sys, threading
 from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QPlainTextEdit, QWidget, QVBoxLayout, QLineEdit, QLabel, QFormLayout, QFileDialog, QHBoxLayout
-from PySide6.QtCore import Signal, QObject, QTimer
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtCore import Signal, QObject, QTimer, QFile
 import signal
 from client import AudioSocketClient
 
@@ -14,58 +15,60 @@ BUS = Bus()
 class Win(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Echo Listener · Socket Audio Client")
-        # Inputs
-        self.in_app_base = QLineEdit()
-        self.in_app_base.setPlaceholderText("https://tta-ad")
-        self.in_app_base.setText("https://tta-ad")
+        # Load UI from .ui file created by Qt Designer
+        loader = QUiLoader()
+        ui_file = QFile("main_window.ui")
+        if not ui_file.open(QFile.ReadOnly):
+            raise RuntimeError("Cannot open main_window.ui")
+        loaded = loader.load(ui_file, self)
+        ui_file.close()
+        if loaded is None:
+            raise RuntimeError("Failed to load main_window.ui")
 
-        self.in_username = QLineEdit()
-        self.in_username.setPlaceholderText("username")
-        self.in_username.setText("456456")
+        # If the .ui root is a QMainWindow, take its parts into this subclass
+        if isinstance(loaded, QMainWindow):
+            # carry over title/menus/status/central widget
+            self.setWindowTitle(loaded.windowTitle())
+            if loaded.menuBar():
+                self.setMenuBar(loaded.menuBar())
+            if loaded.statusBar():
+                self.setStatusBar(loaded.statusBar())
+            self.setCentralWidget(loaded.centralWidget())
+            loaded.setParent(self)
+            loaded.hide()
+        else:
+            # otherwise, assume it's a QWidget and set as central
+            self.setCentralWidget(loaded)
 
-        self.in_password = QLineEdit()
-        self.in_password.setPlaceholderText("password")
-        self.in_password.setEchoMode(QLineEdit.Password)
-        self.in_password.setText("456456")
+        # Bind widgets by objectName from the .ui
+        self.in_app_base = self.findChild(QLineEdit, "in_app_base")
+        self.in_username = self.findChild(QLineEdit, "in_username")
+        self.in_password = self.findChild(QLineEdit, "in_password")
+        self.in_group = self.findChild(QLineEdit, "in_group")
+        self.in_cafile = self.findChild(QLineEdit, "in_cafile")
+        self.log = self.findChild(QPlainTextEdit, "log")
+        self.btn = self.findChild(QPushButton, "btn_start")
+        self.btn_stop = self.findChild(QPushButton, "btn_stop")
+        btn_browse = self.findChild(QPushButton, "btn_browse")
+        if btn_browse is not None:
+            btn_browse.clicked.connect(self._choose_cafile)
 
-        self.in_group = QLineEdit()
-        self.in_group.setPlaceholderText("private-audio.Lobby")
-        self.in_group.setText("private-audio.Lobby")
+        # Wire signals
+        if self.btn is not None:
+            self.btn.clicked.connect(self.start)
+        if self.btn_stop is not None:
+            self.btn_stop.clicked.connect(self.stop)
+        if self.log is not None:
+            BUS.log.connect(lambda s: self.log.appendPlainText(s))
 
-        self.in_cafile = QLineEdit()
-        self.in_cafile.setPlaceholderText("Path to app.crt")
-        btn_browse = QPushButton("Browse…")
-        def choose_file():
-            fn, _ = QFileDialog.getOpenFileName(self, "Select Certificate", "", "Certificate Files (*.crt *.pem);;All Files (*)")
-            if fn:
-                self.in_cafile.setText(fn)
-        btn_browse.clicked.connect(choose_file)
-        row = QHBoxLayout()
-        row.addWidget(self.in_cafile)
-        row.addWidget(btn_browse)
-
-        form = QFormLayout()
-        form.addRow(QLabel("App Base"), self.in_app_base)
-        form.addRow(QLabel("Username"), self.in_username)
-        form.addRow(QLabel("Password"), self.in_password)
-        form.addRow(QLabel("Group / Channel"), self.in_group)
-        form.addRow(QLabel("CA File"), row)
-
-        self.log = QPlainTextEdit(readOnly=True)
-        self.btn = QPushButton("Start")
-        self.btn_stop = QPushButton("Stop")
-        self.btn.clicked.connect(self.start)
-        self.btn_stop.clicked.connect(self.stop)
-        BUS.log.connect(lambda s: self.log.appendPlainText(s))
-        lay = QVBoxLayout()
-        lay.addLayout(form)
-        lay.addWidget(self.log)
-        lay.addWidget(self.btn)
-        lay.addWidget(self.btn_stop)
-        w = QWidget(); w.setLayout(lay); self.setCentralWidget(w)
+        # Runtime state
         self.worker = None
         self.cli = None
+
+    def _choose_cafile(self):
+        fn, _ = QFileDialog.getOpenFileName(self, "Select Certificate", "", "Certificate Files (*.crt *.pem);;All Files (*)")
+        if fn and self.in_cafile is not None:
+            self.in_cafile.setText(fn)
 
     def start(self):
         if self.worker and self.worker.is_alive():

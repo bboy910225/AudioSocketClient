@@ -24,13 +24,13 @@ jobs:
         shell: cmd
         run: |
           call .venv\Scripts\activate
-          python -m PySide6.scripts.deploy --init main.py --force
+          pyside6-deploy --init main.py --force
 
       - name: Build with pyside6-deploy
         shell: cmd
         run: |
           call .venv\Scripts\activate
-          python -m PySide6.scripts.deploy pyside6-deploy.json --force
+          pyside6-deploy pyside6-deploy.json --force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

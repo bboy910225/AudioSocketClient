@@ -1,0 +1,37 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:   # 允許手動觸發
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip wheel
+        pip install pyinstaller PySide6 python-socketio websocket-client requests
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --name "AudioSocketClient" --windowed --noconfirm ^
+          --collect-submodules PySide6 ^
+          --add-data "app.crt;." ^
+          --icon icon.ico ^
+          main.py
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: AudioSocketClient-win
+        path: dist/AudioSocketClient/**

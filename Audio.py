@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 import base64
 import os
+import platform
 import queue
 import shutil
 import signal
@@ -128,6 +129,18 @@ class AudioQueuePlayer:
                 # inter-item gap
                 self._sleep_interruptible(self.gap_sec)
 
+    def _find_ffplay(self) -> Optional[str]:
+        # Prefer a bundled ffplay.exe next to this file; fallback to PATH
+        candidates = []
+        base = os.path.abspath(os.path.dirname(__file__))
+        candidates.append(os.path.join(base, 'ffplay.exe'))
+        # On mac/linux also allow plain 'ffplay'
+        candidates.append(shutil.which('ffplay'))
+        for c in candidates:
+            if c and os.path.exists(c):
+                return c
+        return None
+
     def _play_file(self, path: str) -> None:
         # macOS has afplay by default (CoreAudio)
         # It supports mp3/wav/aac/m4a/alac/flac(>= 12). For ogg maybe not.
@@ -136,17 +149,21 @@ class AudioQueuePlayer:
             if system == "Darwin":  # macOS
                 cmd = ["/usr/bin/afplay", path]
             elif system == "Windows":
-                # 1) 用 winsound (僅支援 wav)
-                import winsound
-                if path.lower().endswith(".wav"):
-                    winsound.PlaySound(path, winsound.SND_FILENAME)
-                    return
-                # 2) 或如果有 ffplay.exe 在 PATH，就用 ffplay
-                if shutil.which("ffplay"):
-                    cmd = ["ffplay", "-nodisp", "-autoexit", path]
+                # Prefer ffplay (bundled or PATH). Fallback to winsound for WAV only.
+                ff = self._find_ffplay()
+                if ff:
+                    cmd = [ff, "-nodisp", "-autoexit", path]
                 else:
-                    print("[warn] no suitable player on Windows")
-                    return
+                    try:
+                        import winsound
+                        if path.lower().endswith(".wav"):
+                            winsound.PlaySound(path, winsound.SND_FILENAME)
+                            return
+                        print("[warn] Windows: no ffplay found and file is not WAV; cannot play:", path)
+                        return
+                    except Exception:
+                        print("[warn] Windows: no ffplay/winsound usable; cannot play:", path)
+                        return
             else:  # Linux
                 if shutil.which("ffplay"):
                     cmd = ["ffplay", "-nodisp", "-autoexit", path]

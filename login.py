@@ -34,14 +34,14 @@ class LoginClient:
         username: str,
         password: str,
         *,
-        ca_verify: str = "./app.crt",
+        ca_verify: Optional[Union[bool, str]] = None,
         timeout: int = 15,
         session: Optional[requests.Session] = None,
     ) -> None:
         self.app_base = (app_base or "").rstrip("/")
         self.username = username
         self.password = password
-        self.verify = ca_verify
+        self.verify = ca_verify if ca_verify else True
         self.timeout = int(timeout)
         self._token: Optional[str] = None
         self._sess: requests.Session = session or requests.Session()
@@ -99,4 +99,3 @@ class LoginClient:
 
 
 __all__ = ["LoginClient", "LoginError"]
-

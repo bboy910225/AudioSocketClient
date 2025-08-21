@@ -19,8 +19,8 @@ class AudioSocketClient:
         self.username = username
         self.password = password
         self.gap_sec = gap_sec
-        # Allow override via argument; otherwise use project root app.crt
-        self.cafile = resource_path(cafile if cafile else os.path.join(self.PROJECT_ROOT, "app.crt"))
+        # If a cafile path is provided, resolve it; otherwise use system trust store (verify=True)
+        self.cafile = resource_path(cafile) if cafile else None
 
         self.player = get_player(gap_sec=self.gap_sec)
         self.client = LoginClient(app_base=self.app_base, username=self.username, password=self.password, ca_verify=self.cafile)
@@ -31,13 +31,7 @@ class AudioSocketClient:
             "X-Requested-With": "XMLHttpRequest",
             "Accept": "application/json",
         }
-
-        self.ctx = ssl.create_default_context()
-        self.ctx.load_verify_locations(cafile=self.cafile)  # 你的CA或server cert
-        # 若你的 app.crt 沒有把 'localhost' 放在 SAN/CN，暫時關閉主機名檢查（測通路用，正式請發對的憑證）
-        self.ctx.check_hostname = False
-        # 讓 websocket-client 的 TLS 握手用這個 context
-        websocket._default_ssl_context = self.ctx
+        verify_opt = self.cafile if self.cafile else True
 
         self.sio = socketio.Client(
             logger=False,
@@ -46,7 +40,7 @@ class AudioSocketClient:
             reconnection_attempts=0,       # 無限次
             reconnection_delay=1,          # 1s 起跳
             reconnection_delay_max=5,      # 最長 5s
-            ssl_verify=self.cafile,
+            ssl_verify=verify_opt,
         )
 
         # Register namespace and events
@@ -65,7 +59,7 @@ class AudioSocketClient:
 
         # Trust our self-signed/CA for HTTP polling requests used by Engine.IO
         self._ses = requests.Session()
-        self._ses.verify = self.cafile  # use your CA/self-signed cert bundle
+        self._ses.verify = verify_opt  # True uses system trust; or a path when provided
         self.sio.eio.http = self._ses
 
         # Optional: turn on websocket-client trace to see TLS/handshake errors

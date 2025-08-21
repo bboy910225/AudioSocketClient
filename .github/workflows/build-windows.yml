@@ -35,7 +35,7 @@ jobs:
         pyinstaller --name "AudioSocketClient" --windowed --noconfirm ^
           --collect-submodules PySide6 ^
           --collect-data PySide6 ^
-          --collect-plugins PySide6 ^
+          --collect-all PySide6 ^
           --add-data "app.crt;." ^
           --icon icon.ico ^
           main.py

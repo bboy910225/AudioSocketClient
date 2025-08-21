@@ -23,6 +23,7 @@ jobs:
         pip install pyinstaller PySide6 python-socketio websocket-client requests
 
     - name: Build with PyInstaller
+      shell: cmd
       run: |
         pyinstaller --name "AudioSocketClient" --windowed --noconfirm ^
           --collect-submodules PySide6 ^

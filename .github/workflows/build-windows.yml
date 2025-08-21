@@ -11,22 +11,26 @@ jobs:
         with:
           python-version: "3.10"   # 或 3.11，記得是 x64（預設即 x64）
 
-      - name: Install deps
+      - name: Setup venv and install deps
         shell: cmd
         run: |
+          python -m venv .venv
+          call .venv\Scripts\activate
           python -m pip install --upgrade pip
           pip install --upgrade pyside6
 
-      # 第一次可以先產生設定檔；之後專案固定就保留版本控管
       - name: Init deploy config (first time only)
         if: ${{ hashFiles('pyside6-deploy.json') == '' }}
         shell: cmd
-        run: pyside6-deploy --init main.py
+        run: |
+          call .venv\Scripts\activate
+          python -m PySide6.scripts.deploy --init main.py --force
 
-      # 直接依照設定檔打包
       - name: Build with pyside6-deploy
         shell: cmd
-        run: pyside6-deploy pyside6-deploy.json
+        run: |
+          call .venv\Scripts\activate
+          python -m PySide6.scripts.deploy pyside6-deploy.json --force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

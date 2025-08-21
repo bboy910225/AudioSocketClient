@@ -32,9 +32,27 @@ jobs:
           call .venv\Scripts\activate
           pyside6-deploy pyside6-deploy.json --force
 
+      - name: List deploy output
+        shell: cmd
+        run: |
+          echo === Listing possible output ===
+          if exist pyside6_deploy (dir /s /b pyside6_deploy) else (echo pyside6_deploy not found)
+          if exist dist (dir /s /b dist)
+          where /R . *.exe
+
+      - name: Locate dist folder
+        id: finddist
+        shell: pwsh
+        run: |
+          $distDirs = Get-ChildItem -Path . -Recurse -Directory -Filter dist | Select-Object -ExpandProperty FullName
+          if (-not $distDirs) { Write-Error "No dist directories found"; exit 1 }
+          $preferred = $distDirs | Where-Object { $_ -match 'pyside6_deploy' } | Select-Object -First 1
+          if ($preferred) { $chosen = $preferred } else { $chosen = $distDirs[0] }
+          "distPath=$chosen" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Using dist path: $chosen"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: AudioSocketClient-win
-          path: |
-            pyside6_deploy/**/dist/**
+          path: ${{ steps.finddist.outputs.distPath }}\**

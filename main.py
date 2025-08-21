@@ -20,25 +20,35 @@ class Win(QMainWindow):
         ui_file = QFile("main_window.ui")
         if not ui_file.open(QFile.ReadOnly):
             raise RuntimeError("Cannot open main_window.ui")
-        loaded = loader.load(ui_file, self)
+        # Load WITHOUT parent; we'll transfer parts safely below
+        loaded = loader.load(ui_file)
         ui_file.close()
         if loaded is None:
             raise RuntimeError("Failed to load main_window.ui")
 
-        # If the .ui root is a QMainWindow, take its parts into this subclass
+        # If the .ui root is a QMainWindow, transfer its parts into this subclass
         if isinstance(loaded, QMainWindow):
-            # carry over title/menus/status/central widget
+            # title
             self.setWindowTitle(loaded.windowTitle())
-            if loaded.menuBar():
-                self.setMenuBar(loaded.menuBar())
-            if loaded.statusBar():
-                self.setStatusBar(loaded.statusBar())
-            self.setCentralWidget(loaded.centralWidget())
-            loaded.setParent(self)
-            loaded.hide()
+            # safely detach central widget from loaded (prevents deletion)
+            cw = loaded.takeCentralWidget()
+            if cw is not None:
+                self.setCentralWidget(cw)
+            # menubar / statusbar: detach first, then attach to self
+            mb = loaded.menuBar()
+            if mb is not None:
+                loaded.setMenuBar(None)
+                self.setMenuBar(mb)
+            sb = loaded.statusBar()
+            if sb is not None:
+                loaded.setStatusBar(None)
+                self.setStatusBar(sb)
+            # keep reference so GC won't delete during init
+            self._loaded_ui = loaded
         else:
             # otherwise, assume it's a QWidget and set as central
             self.setCentralWidget(loaded)
+            self._loaded_ui = loaded
 
         # Bind widgets by objectName from the .ui
         self.in_app_base = self.findChild(QLineEdit, "in_app_base")

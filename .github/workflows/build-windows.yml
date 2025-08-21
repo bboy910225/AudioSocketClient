@@ -74,17 +74,27 @@ jobs:
       shell: pwsh
       run: |
         $pysideDir = (python -c "import pathlib, PySide6, sys; sys.stdout.write(str(pathlib.Path(PySide6.__file__).parent))")
+        $binDir = Join-Path $pysideDir "Qt" | Join-Path -ChildPath "bin"
         $dest = "dist/AudioSocketClient"
         $dlls = @('D3DCompiler_47.dll','libEGL.dll','libGLESv2.dll','opengl32sw.dll')
         foreach ($d in $dlls) {
-          $src = Join-Path $pysideDir $d
-          if (Test-Path $src) {
-            Copy-Item $src $dest -Force
-            Write-Host "Copied $d"
-          } else {
-            Write-Warning "Missing $d in $pysideDir"
+          $found = $false
+          foreach ($root in @($pysideDir, $binDir, "$env:SystemRoot\System32")) {
+            $src = Join-Path $root $d
+            if (Test-Path $src) {
+              Copy-Item $src $dest -Force
+              Write-Host "Copied $d from $root"
+              $found = $true
+              break
+            }
           }
+          if (-not $found) { Write-Warning "Missing $d in PySide6 or Qt\\bin" }
         }
+
+    - name: Force Qt software rendering (env)
+      shell: pwsh
+      run: |
+        echo "QT_OPENGL=software" | Out-File -FilePath $env:GITHUB_ENV -Append
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4

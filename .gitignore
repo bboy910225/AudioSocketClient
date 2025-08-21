@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# PyInstaller outputs
+/build/
+/dist/
+/*.spec
+*.dmg
+*.exe
+*.msi
+*.app
+
+# macOS junk
+.DS_Store
+
+# venv
+.venv/
+env/

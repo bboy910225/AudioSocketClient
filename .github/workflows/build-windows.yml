@@ -20,7 +20,15 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip wheel
-        pip install pyinstaller pyinstaller-hooks-contrib PySide6 python-socketio websocket-client requests Pillow
+        pip install ^
+          pyinstaller ^
+          pyinstaller-hooks-contrib ^
+          PySide6 ^
+          shiboken6 ^
+          python-socketio ^
+          websocket-client ^
+          requests ^
+          Pillow
 
     - name: Prepare icon (ensure valid .ico)
       shell: pwsh
@@ -29,13 +37,34 @@ jobs:
           python -c "from PIL import Image; Image.open('icon.png').save('icon.ico', format='ICO', sizes=[(256,256),(128,128),(64,64),(48,48),(32,32),(16,16)])"
         }
 
+    - name: Create Qt runtime hook
+      shell: pwsh
+      run: |
+        @'
+        import os, sys
+        base = getattr(sys, "_MEIPASS", os.path.abspath(os.path.dirname(__file__)))
+        candidates = [
+            os.path.join(base, "PySide6", "Qt", "plugins", "platforms"),
+            os.path.join(base, "_internal", "PySide6", "plugins", "platforms"),
+            os.path.join(base, "_internal", "PySide6", "Qt", "plugins", "platforms"),
+        ]
+        for p in candidates:
+            if os.path.exists(p):
+                os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = p
+                break
+        '@ | Out-File -FilePath qt_runtime_hook.py -Encoding utf8
+
     - name: Build with PyInstaller
       shell: cmd
       run: |
         pyinstaller --name "AudioSocketClient" --windowed --noconfirm ^
-          --collect-submodules PySide6 ^
-          --collect-data PySide6 ^
+          --clean ^
           --collect-all PySide6 ^
+          --collect-all shiboken6 ^
+          --hidden-import PySide6.QtCore ^
+          --hidden-import PySide6.QtGui ^
+          --hidden-import PySide6.QtWidgets ^
+          --runtime-hook qt_runtime_hook.py ^
           --add-data "app.crt;." ^
           --icon icon.ico ^
           main.py

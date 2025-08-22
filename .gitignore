@@ -5,7 +5,6 @@ __pycache__/
 # PyInstaller outputs
 /build/
 /dist/
-/*.spec
 *.dmg
 *.exe
 *.msi

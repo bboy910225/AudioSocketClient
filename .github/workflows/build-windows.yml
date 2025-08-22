@@ -19,39 +19,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyside6==6.7.2
 
-      - name: Init deploy config (first time only)
-        if: ${{ hashFiles('pysidedeploy.spec') == '' }}
+      - name: Verify pysidedeploy.spec exists at repo root
         shell: pwsh
         run: |
-          . .\.venv\Scripts\Activate.ps1
-          pyside6-deploy --init main.py --name AudioSocketClient --extra-ignore-dirs .venv --force
-
-      - name: Patch pysidedeploy.spec (backend/args/output dir)
-        shell: pwsh
-        run: |
-          $spec = Get-Content pysidedeploy.spec -Raw
-          # backend = pyinstaller
-          if ($spec -match '"backend"\s*:\s*"[^"]+"') { $spec = [Regex]::Replace($spec, '"backend"\s*:\s*"[^"]+"', '"backend": "pyinstaller"') } else { $spec = $spec -replace '{', '{"backend": "pyinstaller", ' }
-          # mode = standalone
-          if ($spec -match '"mode"\s*:\s*"[^"]+"') { $spec = [Regex]::Replace($spec, '"mode"\s*:\s*"[^"]+"', '"mode": "standalone"') } else { $spec = $spec -replace '{', '{"mode": "standalone", ' }
-          # output_dir = build\\win
-          if ($spec -match '"output_dir"\s*:\s*"[^"]+"') { $spec = [Regex]::Replace($spec, '"output_dir"\s*:\s*"[^"]+"', '"output_dir": "build\\win"') } else { $spec = $spec -replace '{', '{"output_dir": "build\\win", ' }
-          # extra_ignore_dirs includes .venv
-          if ($spec -match '"extra_ignore_dirs"\s*:\s*\[') { if ($spec -notmatch '\\.venv') { $spec = $spec -replace '("extra_ignore_dirs"\s*:\s*\[)', '$1 ".venv", ' } } else { $spec = $spec -replace '{', '{"extra_ignore_dirs": [ ".venv" ], ' }
-          # PyInstaller args: windowed/noconfirm/collect-all PySide6/icon
-          if ($spec -match '"extra_args"\s*:\s*{') {
-            if ($spec -match '"pyinstaller"\s*:\s*\[') {
-              if ($spec -notmatch '--collect-all"\s*,\s*"PySide6') { $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--collect-all", "PySide6", ' }
-              if ($spec -notmatch '"--windowed"') { $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--windowed", ' }
-              if ($spec -notmatch '"--noconfirm"') { $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--noconfirm", ' }
-              if ($spec -notmatch '"--icon"') { $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--icon", "icon.ico", ' }
-            } else {
-              $spec = $spec -replace '("extra_args"\s*:\s*{)', '$1 "pyinstaller": ["--windowed", "--noconfirm", "--collect-all", "PySide6", "--icon", "icon.ico" ], '
-            }
-          } else {
-            $spec = $spec -replace '{', '{"extra_args": { "pyinstaller": ["--windowed", "--noconfirm", "--collect-all", "PySide6", "--icon", "icon.ico" ] }, '
+          if (-not (Test-Path pysidedeploy.spec)) {
+            Write-Error "pysidedeploy.spec not found at repo root. Commit it or adjust the path."
+            exit 1
           }
-          Set-Content -Path pysidedeploy.spec -Value $spec -Encoding UTF8
+          Write-Host '--- pysidedeploy.spec ---'
+          Get-Content pysidedeploy.spec
 
       - name: Build (pyside6-deploy with PyInstaller backend)
         shell: cmd

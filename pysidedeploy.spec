@@ -18,6 +18,8 @@ project_file =
 # application icon
 icon = icon.ico
 
+
+extra_ignore_dirs = .venv,.venv/Lib/site-packages/PySide6/Qt/qml
 [python]
 
 # python path
@@ -43,3 +45,9 @@ plugins = platforms,imageformats,iconengines
 
 # mode = onefile
 # extra_args = --quiet --noinclude-qt-translations --static-libpython=no
+
+[pyinstaller]
+onefile = false
+noconfirm = true
+windowed = true
+hiddenimports = PySide6

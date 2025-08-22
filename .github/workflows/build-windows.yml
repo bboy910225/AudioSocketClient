@@ -63,5 +63,5 @@ jobs:
           name: AudioSocketClient-win
           if-no-files-found: error
           path: |
-            AudioSocketClient/deployment/**
-            AudioSocketClient/pyside6_deploy/**
+            ./deployment/**
+            ./pyside6_deploy/**

@@ -1,0 +1,4 @@
+python-socketio==5.13.0
+Requests==2.32.5
+simpleaudio==1.0.4
+websocket_client==0.59.0

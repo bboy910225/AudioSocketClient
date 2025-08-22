@@ -19,9 +19,15 @@ project_file =
 icon = icon.ico
 
 
-extra_ignore_dirs = .venv,.venv/Lib/site-packages/PySide6/Qt/qml
+extra_ignore_dirs = .venv
 [python]
-
+packages = [
+    "PySide6",
+    "python-socketio",
+    "requests",
+    "simpleaudio",
+    "websocket-client"
+]
 # python path
 python_path =
 

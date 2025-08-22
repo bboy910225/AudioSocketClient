@@ -10,7 +10,7 @@ project_dir = .
 input_file = main.py
 
 # directory where the executable output is generated
-exec_directory = build/win
+exec_directory = deployment
 
 # path to the project file relative to project_dir
 project_file = 

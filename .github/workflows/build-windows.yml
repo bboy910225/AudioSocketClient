@@ -1,4 +1,4 @@
-name: Build Windows (pyside6-deploy)
+name: Build Windows (PySide6-Deploy + PyInstaller)
 on: [push, workflow_dispatch]
 
 jobs:
@@ -9,7 +9,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"   # 或 3.11，記得是 x64（預設即 x64）
+          python-version: "3.10"   # x64 by default
 
       - name: Setup venv and install deps
         shell: cmd
@@ -17,7 +17,14 @@ jobs:
           python -m venv .venv
           call .venv\Scripts\activate
           python -m pip install --upgrade pip
-          pip install --upgrade pyside6
+          pip install pyside6==6.7.2
+
+      - name: Show versions
+        shell: cmd
+        run: |
+          call .venv\Scripts\activate
+          python -V
+          pyside6-deploy --version
 
       - name: Init deploy config (first time only)
         if: ${{ hashFiles('pysidedeploy.spec') == '' }}
@@ -26,62 +33,58 @@ jobs:
           call .venv\Scripts\activate
           pyside6-deploy --init main.py --force
 
-      - name: Verify config exists
-        shell: cmd
-        run: |
-          dir /b
-          echo === spec ===
-          type pysidedeploy.spec
-
-      - name: Force backend=pyinstaller in spec
+      - name: Force backend=pyinstaller and add PyInstaller args in spec
         shell: pwsh
         run: |
           $spec = Get-Content pysidedeploy.spec -Raw
+          # Ensure backend: pyinstaller
           if ($spec -match '"backend"\s*:\s*"[^"]+"') {
             $spec = [Regex]::Replace($spec, '"backend"\s*:\s*"[^"]+"', '"backend": "pyinstaller"')
           } else {
-            # insert backend right after the first '{'
             $spec = $spec -replace '{', '{"backend": "pyinstaller", '
           }
+          # Ensure mode: standalone
+          if ($spec -notmatch '"mode"\s*:\s*"standalone"') {
+            if ($spec -match '"mode"\s*:\s*"[^"]+"') {
+              $spec = [Regex]::Replace($spec, '"mode"\s*:\s*"[^"]+"', '"mode": "standalone"')
+            } else {
+              $spec = $spec -replace '{', '{"mode": "standalone", '
+            }
+          }
+          # Ensure extra PyInstaller args: collect-all PySide6, windowed, icon
+          if ($spec -match '"extra_args"\s*:\s*{') {
+            if ($spec -match '"pyinstaller"\s*:\s*\[') {
+              # append if not present
+              if ($spec -notmatch '--collect-all"\s*,\s*"PySide6') {
+                $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--collect-all", "PySide6", '
+              }
+              if ($spec -notmatch '"--windowed"') { $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--windowed", ' }
+              if ($spec -notmatch '"--noconfirm"') { $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--noconfirm", ' }
+              if ($spec -notmatch '"--icon"') { $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--icon", "icon.ico", ' }
+            } else {
+              $spec = $spec -replace '("extra_args"\s*:\s*{)', '$1 "pyinstaller": ["--windowed", "--noconfirm", "--collect-all", "PySide6", "--icon", "icon.ico" ], '
+            }
+          } else {
+            $spec = $spec -replace '{', '{"extra_args": { "pyinstaller": ["--windowed", "--noconfirm", "--collect-all", "PySide6", "--icon", "icon.ico" ] }, '
+          }
           Set-Content -Path pysidedeploy.spec -Value $spec
-          Write-Host 'Updated backend to pyinstaller in pysidedeploy.spec'
+          Write-Host '--- pysidedeploy.spec ---'
           Get-Content pysidedeploy.spec
 
-      - name: Build with pyside6-deploy
+      - name: Build with pyside6-deploy (PyInstaller backend)
         shell: cmd
         run: |
           call .venv\Scripts\activate
           pyside6-deploy -c pysidedeploy.spec --force
 
-      - name: List deploy output
+      - name: List outputs
         shell: cmd
         run: |
-          echo === Listing possible output ===
+          echo === pyside6_deploy ===
           if exist pyside6_deploy (dir /s /b pyside6_deploy) else (echo pyside6_deploy not found)
+          echo === dist (fallback) ===
           if exist dist (dir /s /b dist)
-          where /R . *.exe
-
-      - name: Locate build outputs
-        id: finddist
-        shell: pwsh
-        run: |
-          $candidates = @()
-          $candidates += Get-ChildItem -Path . -Recurse -Directory -Filter dist -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
-          $exes = Get-ChildItem -Path . -Recurse -Include *.exe -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
-          if ($exes) {
-            $exeDirs = $exes | ForEach-Object { Split-Path $_ -Parent } | Select-Object -Unique
-            $candidates += $exeDirs
-          }
-          $candidates = $candidates | Select-Object -Unique
-          if ($candidates.Count -gt 0) {
-            $chosen = ($candidates | Where-Object { $_ -match 'pyside6_deploy' } | Select-Object -First 1)
-            if (-not $chosen) { $chosen = $candidates[0] }
-            "distPath=$chosen" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            Write-Host "Using output path: $chosen"
-          } else {
-            Write-Host "No dist or exe outputs found. Will rely on upload globs."
-            "distPath=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          }
+          where /R . *.exe || echo no exe found
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -90,4 +93,5 @@ jobs:
           if-no-files-found: warn
           path: |
             pyside6_deploy\**
+            **\dist\**
             **\*.exe

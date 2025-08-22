@@ -68,8 +68,5 @@ jobs:
           name: AudioSocketClient-win
           if-no-files-found: warn
           path: |
-            ${{ steps.finddist.outputs.distPath }}\**
-            pyside6_deploy\**\dist\**
-            pyside6_deploy\**\*.exe
-            dist\**
-            build\**\*.exe
+            pyside6_deploy\**
+            **\*.exe

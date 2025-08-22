@@ -9,7 +9,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"   # x64 by default
+          python-version: "3.10"
 
       - name: Setup venv and install deps
         shell: cmd
@@ -19,40 +19,41 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyside6==6.7.2
 
-    
-
-      - name: Init deploy config (first time only)
-        if: ${{ hashFiles('pysidedeploy.spec') == '' }}
+      - name: Show versions
         shell: cmd
         run: |
           call .venv\Scripts\activate
-          pyside6-deploy --init main.py --force
+          python -V
+          python - << "PY"
+          import PySide6, importlib.util
+          print("PySide6", PySide6.__version__)
+          spec = importlib.util.find_spec("PySide6")
+          print("PySide6 module:", spec.origin if spec else "<not found>")
+          PY
 
-      - name: Force backend=pyinstaller and add PyInstaller args in spec
+      - name: Init deploy config (first time only)
+        if: ${{ hashFiles('pysidedeploy.spec') == '' }}
+        shell: pwsh
+        run: |
+          . .\.venv\Scripts\Activate.ps1
+          pyside6-deploy --init main.py --name AudioSocketClient --extra-ignore-dirs .venv --force
+
+      - name: Patch pysidedeploy.spec (backend/args/output dir)
         shell: pwsh
         run: |
           $spec = Get-Content pysidedeploy.spec -Raw
-          # Ensure backend: pyinstaller
-          if ($spec -match '"backend"\s*:\s*"[^"]+"') {
-            $spec = [Regex]::Replace($spec, '"backend"\s*:\s*"[^"]+"', '"backend": "pyinstaller"')
-          } else {
-            $spec = $spec -replace '{', '{"backend": "pyinstaller", '
-          }
-          # Ensure mode: standalone
-          if ($spec -notmatch '"mode"\s*:\s*"standalone"') {
-            if ($spec -match '"mode"\s*:\s*"[^"]+"') {
-              $spec = [Regex]::Replace($spec, '"mode"\s*:\s*"[^"]+"', '"mode": "standalone"')
-            } else {
-              $spec = $spec -replace '{', '{"mode": "standalone", '
-            }
-          }
-          # Ensure extra PyInstaller args: collect-all PySide6, windowed, icon
+          # backend = pyinstaller
+          if ($spec -match '"backend"\s*:\s*"[^"]+"') { $spec = [Regex]::Replace($spec, '"backend"\s*:\s*"[^"]+"', '"backend": "pyinstaller"') } else { $spec = $spec -replace '{', '{"backend": "pyinstaller", ' }
+          # mode = standalone
+          if ($spec -match '"mode"\s*:\s*"[^"]+"') { $spec = [Regex]::Replace($spec, '"mode"\s*:\s*"[^"]+"', '"mode": "standalone"') } else { $spec = $spec -replace '{', '{"mode": "standalone", ' }
+          # output_dir = build\\win
+          if ($spec -match '"output_dir"\s*:\s*"[^"]+"') { $spec = [Regex]::Replace($spec, '"output_dir"\s*:\s*"[^"]+"', '"output_dir": "build\\win"') } else { $spec = $spec -replace '{', '{"output_dir": "build\\win", ' }
+          # extra_ignore_dirs includes .venv
+          if ($spec -match '"extra_ignore_dirs"\s*:\s*\[') { if ($spec -notmatch '\\.venv') { $spec = $spec -replace '("extra_ignore_dirs"\s*:\s*\[)', '$1 ".venv", ' } } else { $spec = $spec -replace '{', '{"extra_ignore_dirs": [ ".venv" ], ' }
+          # PyInstaller args: windowed/noconfirm/collect-all PySide6/icon
           if ($spec -match '"extra_args"\s*:\s*{') {
             if ($spec -match '"pyinstaller"\s*:\s*\[') {
-              # append if not present
-              if ($spec -notmatch '--collect-all"\s*,\s*"PySide6') {
-                $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--collect-all", "PySide6", '
-              }
+              if ($spec -notmatch '--collect-all"\s*,\s*"PySide6') { $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--collect-all", "PySide6", ' }
               if ($spec -notmatch '"--windowed"') { $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--windowed", ' }
               if ($spec -notmatch '"--noconfirm"') { $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--noconfirm", ' }
               if ($spec -notmatch '"--icon"') { $spec = $spec -replace '("pyinstaller"\s*:\s*\[)', '$1 "--icon", "icon.ico", ' }
@@ -62,41 +63,19 @@ jobs:
           } else {
             $spec = $spec -replace '{', '{"extra_args": { "pyinstaller": ["--windowed", "--noconfirm", "--collect-all", "PySide6", "--icon", "icon.ico" ] }, '
           }
-          Set-Content -Path pysidedeploy.spec -Value $spec
-          Write-Host '--- pysidedeploy.spec ---'
-          Get-Content pysidedeploy.spec
-      - name: Dry run (show commands)
+          Set-Content -Path pysidedeploy.spec -Value $spec -Encoding UTF8
+
+      - name: Build (pyside6-deploy with PyInstaller backend)
         shell: cmd
         run: |
           call .venv\Scripts\activate
-          pyside6-deploy -c pysidedeploy.spec --dry-run
-
-      - name: Build with pyside6-deploy (PyInstaller backend)
-        shell: cmd
-        run: |
-          call .venv\Scripts\activate
-          pyside6-deploy -c pysidedeploy.spec --force
-
-      - name: List outputs
-        shell: cmd
-        run: |
-          echo === pyside6_deploy ===
-          if exist pyside6_deploy (dir /s /b pyside6_deploy) else (echo pyside6_deploy not found)
-          echo === dist (fallback) ===
-          if exist dist (dir /s /b dist)
-          where /R . *.exe || echo no exe found
-      - name: Ensure artifact exists
-        shell: pwsh
-        run: |
-          $exes = Get-ChildItem -Path . -Recurse -Include *.exe -File -ErrorAction SilentlyContinue
-          if (-not $exes) { Write-Error "No .exe produced by build."; exit 1 }
+          pyside6-deploy -c pysidedeploy.spec --extra-ignore-dirs .venv --force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: AudioSocketClient-win
-          if-no-files-found: warn
+          if-no-files-found: error
           path: |
-            pyside6_deploy\**
-            **\dist\**
-            **\*.exe
+            build/win/**
+            pyside6_deploy/**

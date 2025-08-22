@@ -26,11 +26,17 @@ jobs:
           call .venv\Scripts\activate
           pyside6-deploy --init main.py --force
 
-      - name: Build with pyside6-deploy
+      - name: Verify config exists
+        shell: cmd
+        run: |
+          dir /b
+          type pyside6-deploy.json
+
+      - name: Build with pyside6-deploy (PyInstaller backend)
         shell: cmd
         run: |
           call .venv\Scripts\activate
-          pyside6-deploy pyside6-deploy.json --force
+          pyside6-deploy -c pyside6-deploy.json --backend pyinstaller --force
 
       - name: List deploy output
         shell: cmd

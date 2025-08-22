@@ -49,8 +49,8 @@ plugins = platforms,imageformats,iconengines
 
 [nuitka]
 
-# mode = onefile
-extra_args = 
+mode = onefile
+extra_args = --noinclude-dlls=*.cpp.o --noinclude-dlls=*.qsb --noinclude-dlls=*.webp
 
 [pyinstaller]
 onefile = false

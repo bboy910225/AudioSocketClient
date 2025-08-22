@@ -45,7 +45,7 @@ jobs:
         shell: pwsh
         run: |
           . "$env:VENV\Scripts\Activate.ps1"
-          pyside6-deploy -c pysidedeploy.spec --force --dry-run
+          pyside6-deploy -c pysidedeploy.spec --force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

@@ -33,11 +33,25 @@ jobs:
           echo === spec ===
           type pysidedeploy.spec
 
-      - name: Build with pyside6-deploy (PyInstaller backend)
+      - name: Force backend=pyinstaller in spec
+        shell: pwsh
+        run: |
+          $spec = Get-Content pysidedeploy.spec -Raw
+          if ($spec -match '"backend"\s*:\s*"[^"]+"') {
+            $spec = [Regex]::Replace($spec, '"backend"\s*:\s*"[^"]+"', '"backend": "pyinstaller"')
+          } else {
+            # insert backend right after the first '{'
+            $spec = $spec -replace '{', '{"backend": "pyinstaller", '
+          }
+          Set-Content -Path pysidedeploy.spec -Value $spec
+          Write-Host 'Updated backend to pyinstaller in pysidedeploy.spec'
+          Get-Content pysidedeploy.spec
+
+      - name: Build with pyside6-deploy
         shell: cmd
         run: |
           call .venv\Scripts\activate
-          pyside6-deploy -c pysidedeploy.spec --backend pyinstaller --force
+          pyside6-deploy -c pysidedeploy.spec --force
 
       - name: List deploy output
         shell: cmd

@@ -45,15 +45,6 @@ jobs:
         shell: pwsh
         run: |
           . "$env:VENV\Scripts\Activate.ps1"
-          # 額外保險：把 venv 加到忽略清單（避免「包含大量 QML from venv」錯誤）
-          # 這行只在你 spec 沒有 extra_ignore_dirs 時幫補；若已寫在 spec 可拿掉
-          $spec = Get-Content .\pysidedeploy.spec | Out-String
-          if ($spec -notmatch '"extra_ignore_dirs"') {
-            $spec = $spec -replace '\}\s*$', ', "extra_ignore_dirs": [".venv", ".git", "__pycache__", $env:VENV.Replace("\","/")] }'
-            Set-Content .\pysidedeploy.spec $spec
-          }
-
-          # --force 確保覆蓋先前 deployment 內容（避免殘檔）
           pyside6-deploy -c pysidedeploy.spec --force
 
       - name: Upload artifact

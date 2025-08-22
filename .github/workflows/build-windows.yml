@@ -24,7 +24,7 @@ jobs:
         run: |
           call .venv\Scripts\activate
           python -V
-          pyside6-deploy --version
+          python -c "import PySide6, importlib; print('PySide6', PySide6.__version__); import PySide6.scripts.deploy as dep; print('deploy', dep.__file__)"
 
       - name: Init deploy config (first time only)
         if: ${{ hashFiles('pysidedeploy.spec') == '' }}
@@ -70,6 +70,11 @@ jobs:
           Set-Content -Path pysidedeploy.spec -Value $spec
           Write-Host '--- pysidedeploy.spec ---'
           Get-Content pysidedeploy.spec
+      - name: Dry run (show commands)
+        shell: cmd
+        run: |
+          call .venv\Scripts\activate
+          pyside6-deploy -c pysidedeploy.spec --dry-run
 
       - name: Build with pyside6-deploy (PyInstaller backend)
         shell: cmd
@@ -85,6 +90,11 @@ jobs:
           echo === dist (fallback) ===
           if exist dist (dir /s /b dist)
           where /R . *.exe || echo no exe found
+      - name: Ensure artifact exists
+        shell: pwsh
+        run: |
+          $exes = Get-ChildItem -Path . -Recurse -Include *.exe -File -ErrorAction SilentlyContinue
+          if (-not $exes) { Write-Error "No .exe produced by build."; exit 1 }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

@@ -8,7 +8,6 @@ jobs:
       PYSIDE_DISABLE_PROMPTS: "1"      # 關閉互動詢問
       QT_DEBUG_PLUGINS: "0"
       # 讓 Nuitka 自動下載 dependency-walker，不要卡互動
-      NUITKA_CACHE_DIR: ${{ runner.temp }}\nuitka-cache
       NUITKA_USE_CACHE: "yes"
     steps:
       - uses: actions/checkout@v4
@@ -26,6 +25,12 @@ jobs:
           pip install --upgrade pip
           pip install "pyside6==6.7.2"
           echo "VENV=$venv" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Export NUITKA_CACHE_DIR from RUNNER_TEMP
+        shell: pwsh
+        run: |
+          $cache = Join-Path $env:RUNNER_TEMP 'nuitka-cache'
+          echo "NUITKA_CACHE_DIR=$cache" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Ensure pysidedeploy.spec at repo root
         shell: pwsh

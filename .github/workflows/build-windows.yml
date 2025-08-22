@@ -19,18 +19,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyside6==6.7.2
 
-      - name: Show versions
-        shell: cmd
-        run: |
-          call .venv\Scripts\activate
-          python -V
-          python - << "PY"
-          import PySide6, importlib.util
-          print("PySide6", PySide6.__version__)
-          spec = importlib.util.find_spec("PySide6")
-          print("PySide6 module:", spec.origin if spec else "<not found>")
-          PY
-
       - name: Init deploy config (first time only)
         if: ${{ hashFiles('pysidedeploy.spec') == '' }}
         shell: pwsh

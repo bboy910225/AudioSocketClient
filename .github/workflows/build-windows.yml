@@ -27,6 +27,13 @@ jobs:
           pip install nuitka
           pip install -r requirements.txt
           echo "VENV=$venv" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Export NUITKA_CACHE_DIR from RUNNER_TEMP
+        shell: pwsh
+        run: |
+          $cache = Join-Path $env:RUNNER_TEMP 'nuitka-cache'
+          echo "NUITKA_CACHE_DIR=$cache" | Out-File -FilePath $env:GITHUB_ENV -Append
+          
       - name: Download depends.exe for Nuitka
         shell: pwsh
         run: |
@@ -34,12 +41,6 @@ jobs:
           New-Item -ItemType Directory -Force -Path $dependsPath | Out-Null
           Invoke-WebRequest -Uri "https://dependencywalker.com/depends22_x64.zip" -OutFile "depends.zip"
           Expand-Archive -Path "depends.zip" -DestinationPath $dependsPath
-
-      - name: Export NUITKA_CACHE_DIR from RUNNER_TEMP
-        shell: pwsh
-        run: |
-          $cache = Join-Path $env:RUNNER_TEMP 'nuitka-cache'
-          echo "NUITKA_CACHE_DIR=$cache" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Ensure pysidedeploy.spec at repo root
         shell: pwsh

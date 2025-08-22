@@ -24,6 +24,8 @@ jobs:
           . "$venv\Scripts\Activate.ps1"
           pip install --upgrade pip
           pip install "pyside6==6.7.2"
+          pip install nuitka
+          pip install -r requirements.txt
           echo "VENV=$venv" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Export NUITKA_CACHE_DIR from RUNNER_TEMP

@@ -21,7 +21,7 @@ icon = icon.ico
 
 extra_ignore_dirs = .venv
 [python]
-packages = "PySide6,python-socketio,requests,simpleaudio,websocket-client"
+packages = PySide6,python-socketio,requests,simpleaudio,websocket-client
 # python path
 python_path =
 

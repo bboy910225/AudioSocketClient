@@ -50,7 +50,7 @@ plugins = platforms,imageformats,iconengines
 [nuitka]
 
 # mode = onefile
-# extra_args = --quiet --noinclude-qt-translations --static-libpython=no
+extra_args = ""
 
 [pyinstaller]
 onefile = false

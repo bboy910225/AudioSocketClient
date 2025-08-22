@@ -1,6 +1,7 @@
 # main.py
 import sys, threading
-from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QPlainTextEdit, QWidget, QVBoxLayout, QLineEdit, QLabel, QFormLayout, QFileDialog, QHBoxLayout
+from util.AudioInput import OutputDeviceDetector, AudioUIManager
+from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QPlainTextEdit, QWidget, QVBoxLayout, QLineEdit, QLabel, QFormLayout, QFileDialog, QHBoxLayout, QComboBox
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import Signal, QObject, QTimer, QFile
 import signal
@@ -43,13 +44,19 @@ class Win(QMainWindow):
             self.setCentralWidget(loaded)
             self._loaded_ui = loaded
 
-        # Bind widgets by objectName from the .ui
         self.in_app_base = self.findChild(QLineEdit, "in_app_base")
         self.in_username = self.findChild(QLineEdit, "in_username")
         self.in_password = self.findChild(QLineEdit, "in_password")
-        self.in_group = self.findChild(QLineEdit, "in_group")
+        
+        self.ui_manager = AudioUIManager(self)  # 傳入 parent 視窗
+        # self.ui_manager.populate_output_devices()
+        self.in_reload =  self.findChild(QPushButton, "btn_reload_output_mapping")
+        self.in_reload.clicked.connect(self.ui_manager.populate_output_devices)
+
         self.in_cafile = self.findChild(QLineEdit, "in_cafile")
+
         self.log = self.findChild(QPlainTextEdit, "log")
+
         self.btn = self.findChild(QPushButton, "btn_start")
         self.btn_stop = self.findChild(QPushButton, "btn_stop")
         btn_browse = self.findChild(QPushButton, "btn_browse")

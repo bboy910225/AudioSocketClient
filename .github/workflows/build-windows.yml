@@ -11,14 +11,18 @@ jobs:
         with:
           python-version: "3.10"
 
+      # 1) venv 放到 repo 外面（重點！）
       - name: Setup venv and install deps
-        shell: cmd
+        shell: pwsh
         run: |
-          python -m venv .venv
-          call .venv\Scripts\activate
+          $venv = Join-Path $env:RUNNER_TEMP "asc-venv"
+          python -m venv $venv
+          . "$venv\Scripts\Activate.ps1"
           python -m pip install --upgrade pip
           pip install pyside6==6.7.2
+          echo "VENV=$venv" | Out-File -FilePath $env:GITHUB_ENV -Append
 
+      # 2) 確保 spec 在 repo root
       - name: Verify pysidedeploy.spec exists at repo root
         shell: pwsh
         run: |
@@ -26,14 +30,14 @@ jobs:
             Write-Error "pysidedeploy.spec not found at repo root. Commit it or adjust the path."
             exit 1
           }
-          Write-Host '--- pysidedeploy.spec ---'
           Get-Content pysidedeploy.spec
 
+      # 3) 直接 build；不要用 --backend=pyinstaller（很多版本不支援）
       - name: Build (pyside6-deploy with PyInstaller backend)
-        shell: cmd
+        shell: pwsh
         run: |
-          call .venv\Scripts\activate
-          pyside6-deploy -c pysidedeploy.spec --extra-ignore-dirs .venv --extra-ignore-dirs .venv\Lib\site-packages\PySide6\Qt\qml --force
+          . "$env:VENV\Scripts\Activate.ps1"
+          pyside6-deploy -c pysidedeploy.spec --force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

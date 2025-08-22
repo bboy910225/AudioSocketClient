@@ -33,7 +33,7 @@ jobs:
         run: |
           $cache = Join-Path $env:RUNNER_TEMP 'nuitka-cache'
           echo "NUITKA_CACHE_DIR=$cache" | Out-File -FilePath $env:GITHUB_ENV -Append
-          
+
       - name: Download depends.exe for Nuitka
         shell: pwsh
         run: |
@@ -63,5 +63,5 @@ jobs:
           name: AudioSocketClient-win
           if-no-files-found: error
           path: |
-            deployment/**
-            pyside6_deploy/**
+            ${{ github.workspace }}/deployment/**
+            ${{ github.workspace }}/pyside6_deploy/**

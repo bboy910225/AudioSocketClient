@@ -20,7 +20,7 @@ jobs:
           pip install --upgrade pyside6
 
       - name: Init deploy config (first time only)
-        if: ${{ hashFiles('pyside6-deploy.json') == '' }}
+        if: ${{ hashFiles('pysidedeploy.spec') == '' }}
         shell: cmd
         run: |
           call .venv\Scripts\activate
@@ -30,13 +30,14 @@ jobs:
         shell: cmd
         run: |
           dir /b
-          type pyside6-deploy.json
+          echo === spec ===
+          type pysidedeploy.spec
 
       - name: Build with pyside6-deploy (PyInstaller backend)
         shell: cmd
         run: |
           call .venv\Scripts\activate
-          pyside6-deploy -c pyside6-deploy.json --backend pyinstaller --force
+          pyside6-deploy -c pysidedeploy.spec --backend pyinstaller --force
 
       - name: List deploy output
         shell: cmd

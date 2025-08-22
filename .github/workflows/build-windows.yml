@@ -27,6 +27,13 @@ jobs:
           pip install nuitka
           pip install -r requirements.txt
           echo "VENV=$venv" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Download depends.exe for Nuitka
+        shell: pwsh
+        run: |
+          $dependsPath = Join-Path $env:NUITKA_CACHE_DIR "downloads\depends\x86_64"
+          New-Item -ItemType Directory -Force -Path $dependsPath | Out-Null
+          Invoke-WebRequest -Uri "https://dependencywalker.com/depends22_x64.zip" -OutFile "depends.zip"
+          Expand-Archive -Path "depends.zip" -DestinationPath $dependsPath
 
       - name: Export NUITKA_CACHE_DIR from RUNNER_TEMP
         shell: pwsh

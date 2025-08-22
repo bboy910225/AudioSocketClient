@@ -1,9 +1,15 @@
-name: Build Windows (PySide6-Deploy + PyInstaller)
-on: [push, workflow_dispatch]
+name: Build Windows (PySide6-Deploy)
+on: [workflow_dispatch, push]
 
 jobs:
   build-win:
     runs-on: windows-latest
+    env:
+      PYSIDE_DISABLE_PROMPTS: "1"      # 關閉互動詢問
+      QT_DEBUG_PLUGINS: "0"
+      # 讓 Nuitka 自動下載 dependency-walker，不要卡互動
+      NUITKA_CACHE_DIR: ${{ runner.temp }}\nuitka-cache
+      NUITKA_USE_CACHE: "yes"
     steps:
       - uses: actions/checkout@v4
 
@@ -11,32 +17,38 @@ jobs:
         with:
           python-version: "3.10"
 
-      # 1) venv 放到 repo 外面（重點！）
-      - name: Setup venv and install deps
+      - name: Setup venv & deps (venv 放 RUNNER_TEMP 避免被掃 QML)
         shell: pwsh
         run: |
           $venv = Join-Path $env:RUNNER_TEMP "asc-venv"
           python -m venv $venv
           . "$venv\Scripts\Activate.ps1"
-          python -m pip install --upgrade pip
-          pip install pyside6==6.7.2
+          pip install --upgrade pip
+          pip install "pyside6==6.7.2"
           echo "VENV=$venv" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      # 2) 確保 spec 在 repo root
-      - name: Verify pysidedeploy.spec exists at repo root
+      - name: Ensure pysidedeploy.spec at repo root
         shell: pwsh
         run: |
-          if (-not (Test-Path pysidedeploy.spec)) {
-            Write-Error "pysidedeploy.spec not found at repo root. Commit it or adjust the path."
-            exit 1
+          if (-not (Test-Path ".\pysidedeploy.spec")) {
+            Write-Error "pysidedeploy.spec not found at repo root"; exit 1
           }
-          Get-Content pysidedeploy.spec
+          Write-Host "--- pysidedeploy.spec ---"
+          Get-Content .\pysidedeploy.spec
 
-      # 3) 直接 build；不要用 --backend=pyinstaller（很多版本不支援）
-      - name: Build (pyside6-deploy with PyInstaller backend)
+      - name: Build (pyside6-deploy)
         shell: pwsh
         run: |
           . "$env:VENV\Scripts\Activate.ps1"
+          # 額外保險：把 venv 加到忽略清單（避免「包含大量 QML from venv」錯誤）
+          # 這行只在你 spec 沒有 extra_ignore_dirs 時幫補；若已寫在 spec 可拿掉
+          $spec = Get-Content .\pysidedeploy.spec | Out-String
+          if ($spec -notmatch '"extra_ignore_dirs"') {
+            $spec = $spec -replace '\}\s*$', ', "extra_ignore_dirs": [".venv", ".git", "__pycache__", $env:VENV.Replace("\","/")] }'
+            Set-Content .\pysidedeploy.spec $spec
+          }
+
+          # --force 確保覆蓋先前 deployment 內容（避免殘檔）
           pyside6-deploy -c pysidedeploy.spec --force
 
       - name: Upload artifact
@@ -45,5 +57,5 @@ jobs:
           name: AudioSocketClient-win
           if-no-files-found: error
           path: |
-            build/win/**
+            deployment/**
             pyside6_deploy/**

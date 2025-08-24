@@ -12,60 +12,68 @@
    <layout class="QVBoxLayout" name="verticalLayout_root">
     <item>
      <layout class="QFormLayout" name="formLayout">
-      <item row="0" column="0"><widget class="QLabel" name="label_app_base"><property name="text"><string>App Base</string></property></widget></item>
+      <item row="0" column="0"><widget class="QLabel" name="label_app_base"><property name="text"><string>連線目標e</string></property></widget></item>
       <item row="0" column="1"><widget class="QLineEdit" name="in_app_base">
         <property name="placeholderText"><string>https://tta-ad</string></property>
         <property name="text"><string>https://tta-ad</string></property>
       </widget></item>
 
-      <item row="1" column="0"><widget class="QLabel" name="label_username"><property name="text"><string>Username</string></property></widget></item>
+      <item row="1" column="0"><widget class="QLabel" name="label_username"><property name="text"><string>帳號</string></property></widget></item>
       <item row="1" column="1"><widget class="QLineEdit" name="in_username">
         <property name="placeholderText"><string>username</string></property>
         <property name="text"><string>456456</string></property>
       </widget></item>
 
-      <item row="2" column="0"><widget class="QLabel" name="label_password"><property name="text"><string>Password</string></property></widget></item>
+      <item row="2" column="0"><widget class="QLabel" name="label_password"><property name="text"><string>密碼</string></property></widget></item>
       <item row="2" column="1"><widget class="QLineEdit" name="in_password">
         <property name="placeholderText"><string>password</string></property>
         <property name="echoMode"><enum>QLineEdit::Password</enum></property>
         <property name="text"><string>456456</string></property>
       </widget></item>
-
-      <item row="3" column="0">
-        <widget class="QLabel" name="label_output_mapping">
+      <item row="5" column="0" colspan="2">
+        <widget class="QPushButton" name="btn_login">
           <property name="text">
-            <string>Output Mapping</string>
+            <string>登入</string>
           </property>
         </widget>
       </item>
-      <item row="3" column="1">
-        <layout class="QHBoxLayout" name="hbox_output_mapping">
-          <item>
-            <widget class="QGroupBox" name="group_output_mapping">
-              <property name="title">
-                <string/>
-              </property>
-              <layout class="QVBoxLayout" name="output_mapping_layout"/>
-            </widget>
-          </item>
-          <item>
-            <widget class="QPushButton" name="btn_reload_output_mapping">
-              <property name="text">
-                <string>Reload</string>
-              </property>
-            </widget>
-          </item>
-        </layout>
-      </item>
 
-      <item row="4" column="0"><widget class="QLabel" name="label_cafile"><property name="text"><string>CA File</string></property></widget></item>
+        <item row="3" column="0">
+          <widget class="QLabel" name="label_output_mapping">
+            <property name="text">
+              <string>輸出日誌</string>
+            </property>
+          </widget>
+        </item>
+        <item row="3" column="1">
+          <widget class="QGroupBox" name="group_output_mapping">
+            <property name="title">
+              <string/>
+            </property>
+            <layout class="QHBoxLayout" name="hbox_output_mapping">
+              <item>
+                <layout class="QVBoxLayout" name="output_mapping_layout"/>
+              </item>
+              <item>
+                <widget class="QPushButton" name="btn_reload_output_mapping">
+                  <property name="text">
+                    <string>更新裝置列表</string>
+                  </property>
+                </widget>
+              </item>
+            </layout>
+          </widget>
+        </item>
+
+      <item row="4" column="0"><widget class="QLabel" name="label_cafile"><property name="text"><string>TSL CA憑證(自簽證)</string></property></widget></item>
       <item row="4" column="1">
         <layout class="QHBoxLayout" name="hbox_cafile">
           <item><widget class="QLineEdit" name="in_cafile">
-            <property name="placeholderText"><string>Path to app.crt</string></property>
+            <property name="placeholderText"><string>選擇憑證位置</string></property>
+            <property name="text"><string>/Users/user/Documents/python/AudioSocketClient/app.crt</string></property>
           </widget></item>
           <item><widget class="QPushButton" name="btn_browse">
-            <property name="text"><string>Browse…</string></property>
+            <property name="text"><string>瀏覽...</string></property>
           </widget></item>
         </layout>
       </item>
@@ -78,8 +86,8 @@
 
     <item>
      <layout class="QHBoxLayout" name="hbox_buttons">
-      <item><widget class="QPushButton" name="btn_start"><property name="text"><string>Start</string></property></widget></item>
-      <item><widget class="QPushButton" name="btn_stop"><property name="text"><string>Stop</string></property></widget></item>
+      <item><widget class="QPushButton" name="btn_start"><property name="text"><string>連線廣播</string></property></widget></item>
+      <item><widget class="QPushButton" name="btn_stop"><property name="text"><string>中斷連線</string></property></widget></item>
       <item><spacer name="spacer_buttons"><property name="orientation"><enum>Qt::Horizontal</enum></property>
         <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
       </spacer></item>

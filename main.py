@@ -1,11 +1,12 @@
 # main.py
 import sys, threading
+from services.login import LoginClient
 from util.AudioInput import OutputDeviceDetector, AudioUIManager
 from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton, QPlainTextEdit, QWidget, QVBoxLayout, QLineEdit, QLabel, QFormLayout, QFileDialog, QHBoxLayout, QComboBox
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import Signal, QObject, QTimer, QFile
 import signal
-from client import AudioSocketClient
+from services.client import AudioSocketClient
 
 
 class Bus(QObject):
@@ -18,7 +19,7 @@ class Win(QMainWindow):
         super().__init__()
         # Load UI from .ui file created by Qt Designer
         loader = QUiLoader()
-        ui_file = QFile("main_window.ui")
+        ui_file = QFile("view/main_window.ui")
         if not ui_file.open(QFile.ReadOnly):
             raise RuntimeError("Cannot open main_window.ui")
         # Load WITHOUT parent; we'll transfer parts safely below
@@ -47,11 +48,16 @@ class Win(QMainWindow):
         self.in_app_base = self.findChild(QLineEdit, "in_app_base")
         self.in_username = self.findChild(QLineEdit, "in_username")
         self.in_password = self.findChild(QLineEdit, "in_password")
+        self.in_login = self.findChild(QPushButton, "btn_login")
+        self.in_login.clicked.connect(self.login)
         
-        self.ui_manager = AudioUIManager(self)  # 傳入 parent 視窗
-        # self.ui_manager.populate_output_devices()
+        self.ui_channel_map_manager = AudioUIManager(self)  # 傳入 parent 視窗
+        
+        self.channel_mape_group = self.findChild(QWidget, "group_output_mapping")
+        self.in_channel_map = self.findChild(QVBoxLayout, "output_mapping_layout")
         self.in_reload =  self.findChild(QPushButton, "btn_reload_output_mapping")
-        self.in_reload.clicked.connect(self.ui_manager.populate_output_devices)
+        self.channel_mape_group.setVisible(False)
+        self.in_reload.clicked.connect(lambda: self.ui_channel_map_manager.populate_output_devices(self.area,force_reload=True))
 
         self.in_cafile = self.findChild(QLineEdit, "in_cafile")
 
@@ -79,30 +85,41 @@ class Win(QMainWindow):
         fn, _ = QFileDialog.getOpenFileName(self, "Select Certificate", "", "Certificate Files (*.crt *.pem);;All Files (*)")
         if fn and self.in_cafile is not None:
             self.in_cafile.setText(fn)
+    def login(self):
+        BUS.log.emit("登入中...")
+        self.client = LoginClient(
+            app_base=self.in_app_base.text(),
+            username=self.in_username.text(),
+            password=self.in_password.text(),
+            ca_verify=self.in_cafile.text(),
+            log_func=lambda msg: BUS.log.emit(msg)
+        )
+        self.token, self.area = self.client.get_token()
+
+        self.ui_channel_map_manager.populate_output_devices(self.area)
+        self.channel_mape_group.setVisible(True)
 
     def start(self):
         if self.worker and self.worker.is_alive():
-            BUS.log.emit("Already running")
+            BUS.log.emit("已經正在連線")
             return
+        if self.token is None or self.token == "":
+            BUS.log.emit("尚未登入")
         app_base = self.in_app_base.text().strip()
-        username = self.in_username.text().strip()
-        password = self.in_password.text().strip()
-        channel = self.in_group.text().strip()
-        if not app_base or not channel or not username or not password:
-            BUS.log.emit("Please fill app_base / username / password / group")
-            return
+        token = self.token
+        cafile = self.in_cafile
         # create client and keep reference for stopping later
         cafile = self.in_cafile.text().strip() or None
-        self.cli = AudioSocketClient(app_base, channel, username, password, cafile=cafile)
+        self.cli = AudioSocketClient(app_base, self.ui_channel_map_manager, self.area, token, log_func=lambda msg: BUS.log.emit(msg),cafile=cafile, )
         def _worker():
             try:
                 self.cli.connect()
                 self.cli.run_forever()
             except Exception as e:
-                BUS.log.emit(f"Worker error: {e}")
+                BUS.log.emit(f"連線失敗: {e}")
         self.worker = threading.Thread(target=_worker, daemon=True)
         self.worker.start()
-        BUS.log.emit(f"Worker started → {app_base} / {channel}")
+        BUS.log.emit(f"廣播練線開始 → 目標：{app_base}")
 
     def stop(self):
         if not self.worker:

@@ -31,12 +31,15 @@ import tempfile
 import threading
 import time
 from typing import Optional, Dict, Any
+import sounddevice as sd
+import soundfile as sf
+
 
 
 class AudioQueuePlayer:
     def __init__(self, gap_sec: float = 1.0):
         self.gap_sec = float(gap_sec)
-        self._q: queue.Queue[str] = queue.Queue()
+        self._q: queue.Queue[tuple[str, int]] = queue.Queue()
         self._stop = threading.Event()
         self._worker = threading.Thread(target=self._run, daemon=True)
         self._current_proc: Optional[subprocess.Popen] = None
@@ -44,10 +47,11 @@ class AudioQueuePlayer:
         self._worker.start()
 
     # --- Public API -------------------------------------------------------
-    def enqueue_base64(self, b64: str, fmt_hint: Optional[str] = None) -> None:
+    def enqueue_base64(self, b64: str, deviceName: int, fmt_hint: Optional[str] = None) -> None:
         """Decode base64 -> temp file -> enqueue file path for playback.
         fmt_hint can be like "mp3", "wav", "audio/mpeg", etc.
         """
+        print(f"456456")
         if not isinstance(b64, (bytes, str)):
             raise TypeError("b64 must be str or bytes")
         if isinstance(b64, bytes):
@@ -61,16 +65,19 @@ class AudioQueuePlayer:
                 data = base64.b64decode(b64.split(",", 1)[1], validate=False)
             else:
                 raise
-
+        print(f"111")
         ext = self._sniff_ext(data, fmt_hint)
+        print(f"22")
         tmp_fd, tmp_path = tempfile.mkstemp(prefix="audq_", suffix=ext)
         os.close(tmp_fd)
         with open(tmp_path, "wb") as f:
             f.write(data)
+        print(f"33")
         self._tmp_files.add(tmp_path)
-        self._q.put(tmp_path)
+        print("deviceid. :",deviceName)
+        self._q.put((tmp_path, deviceName))
 
-    def enqueue_event_payload(self, payload: Dict[str, Any]) -> None:
+    def enqueue_event_payload(self, payload: Dict[str, Any], deviceName: str) -> None:
         """Convenience: try common keys in your event payload.
         Example payloads:
           {"audio": "<base64>", "format": "mp3"}
@@ -89,7 +96,7 @@ class AudioQueuePlayer:
                 hint = d.get("format") or d.get("mime")
         if cand is None:
             raise ValueError("payload does not contain a base64 audio field")
-        self.enqueue_base64(cand, hint)
+        self.enqueue_base64(cand, hint, deviceName)
 
     def stop(self) -> None:
         """Stop the background worker and cleanup temp files."""
@@ -113,11 +120,12 @@ class AudioQueuePlayer:
     def _run(self) -> None:
         while not self._stop.is_set():
             try:
-                path = self._q.get(timeout=0.25)
+                path, deviceName = self._q.get(timeout=0.25)
+                print("deviceID:",deviceName)
             except queue.Empty:
                 continue
             try:
-                self._play_file(path)
+                self._play_file(path, deviceName)
             finally:
                 # remove after play to avoid disk pile-up
                 try:
@@ -141,63 +149,19 @@ class AudioQueuePlayer:
                 return c
         return None
 
-    def _play_file(self, path: str) -> None:
-        # macOS has afplay by default (CoreAudio)
-        # It supports mp3/wav/aac/m4a/alac/flac(>= 12). For ogg maybe not.
+    def _play_file(self, path: str, deviceName) -> None:
+        # Use sounddevice to play audio on specified device
+        system = platform.system()
         try:
-            system = platform.system()
-            if system == "Darwin":  # macOS
-                cmd = ["/usr/bin/afplay", path]
-            elif system == "Windows":
-                # Prefer ffplay (bundled or PATH). Fallback to winsound for WAV only.
-                ff = self._find_ffplay()
-                if ff:
-                    cmd = [ff, "-nodisp", "-autoexit", path]
-                else:
-                    try:
-                        import winsound
-                        if path.lower().endswith(".wav"):
-                            winsound.PlaySound(path, winsound.SND_FILENAME)
-                            return
-                        print("[warn] Windows: no ffplay found and file is not WAV; cannot play:", path)
-                        return
-                    except Exception:
-                        print("[warn] Windows: no ffplay/winsound usable; cannot play:", path)
-                        return
-            else:  # Linux
-                if shutil.which("ffplay"):
-                    cmd = ["ffplay", "-nodisp", "-autoexit", path]
-                elif shutil.which("aplay"):
-                    cmd = ["aplay", path]
-                else:
-                    print("[warn] no suitable player on Linux")
-                    return
-            self._current_proc = subprocess.Popen(cmd)
-            self._current_proc.wait()
-        except FileNotFoundError:
-            # Fallback to Python wave+simpleaudio only for WAV (no deps scenario)
-            if path.lower().endswith(".wav"):
-                try:
-                    import wave
-                    import audioop
-                    import sys
-                    import time as _time
-                    import math
-                    # Try minimal playback with pyaudio/simpleaudio if installed
-                    try:
-                        import simpleaudio as sa  # type: ignore
-                        with wave.open(path, 'rb') as wf:
-                            data = wf.readframes(wf.getnframes())
-                            play_obj = sa.play_buffer(data, wf.getnchannels(), wf.getsampwidth(), wf.getframerate())
-                            play_obj.wait_done()
-                    except Exception:
-                        print("[warn] afplay & simpleaudio unavailable; cannot play WAV")
-                except Exception:
-                    print("[warn] cannot play audio (afplay missing)")
-            else:
-                print("[warn] afplay not found; cannot play:", path)
-        finally:
-            self._current_proc = None
+            import soundfile as sf
+            for i, d in enumerate(sd.query_devices()):
+                print(f"[{i}] {d['name']} | hostapi: {d['hostapi']} | max_output_channels: {d['max_output_channels']}")
+            data, samplerate = sf.read(path, dtype='float32')
+            print("device id:", deviceName)
+            sd.play(data, samplerate=samplerate, device=deviceName)
+            sd.wait()
+        except Exception as e:
+            print(f"[warn] sounddevice playback failed: {e}")
 
     def _sleep_interruptible(self, seconds: float) -> None:
         """Sleep in small slices so `stop()` can interrupt promptly."""

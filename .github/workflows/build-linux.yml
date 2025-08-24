@@ -31,7 +31,11 @@ jobs:
           python -m pip install --upgrade pip wheel
           pip install pyinstaller PySide6 shiboken6
           pyinstaller --name AudioSocketClient --windowed --noconfirm \
-            --collect-all PySide6 --collect-all shiboken6 \
+            --collect-all PySide6 \
+            --collect-all shiboken6 \
+            --hidden-import=socket \
+            --hidden-import=websocket \
+            --hidden-import=sounddevice \
             main.py
       - uses: actions/upload-artifact@v4
         with: { name: AudioSocketClient-linux, path: dist/AudioSocketClient/** }

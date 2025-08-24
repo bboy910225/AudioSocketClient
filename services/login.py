@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import base64
 import requests
-from typing import Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from util.common import resource_path
 
@@ -35,6 +35,7 @@ class LoginClient:
         password: str,
         *,
         ca_verify: Optional[Union[bool, str]] = None,
+        log_func=None,
         timeout: int = 15,
         session: Optional[requests.Session] = None,
     ) -> None:
@@ -42,6 +43,7 @@ class LoginClient:
         self.username = username
         self.password = password
         self.verify = ca_verify if ca_verify else True
+        self.log_func = log_func
         self.timeout = int(timeout)
         self._token: Optional[str] = None
         self._sess: requests.Session = session or requests.Session()
@@ -71,18 +73,21 @@ class LoginClient:
         except Exception:
             raise LoginError(f"Login returned non-JSON body head={resp.text[:200]!r}")
         if data.get("status") != 1:
+            self.log_func(f"登入失敗 payload: {data!r}")
             raise LoginError(f"Login failed payload: {data!r}")
         token = data.get("token")
+        self.area_list = data.get("area")
         if not token:
             raise LoginError("Login succeeded but no token in payload")
+        self.log_func(f"登入成功")
         self._token = token
-        return token
+        return token, self.area_list
 
-    def get_token(self, refresh: bool = False) -> str:
+    def get_token(self, refresh: bool = False) -> Tuple[str, List[str]]:
         """Return cached token; if missing or refresh=True, perform login."""
         if not self._token or refresh:
             return self.login()
-        return self._token
+        return self._token, self.area_list
 
     def auth_headers(self) -> dict:
         """Convenience: build Authorization/Accept/X-Requested-With headers."""

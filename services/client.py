@@ -3,8 +3,7 @@ from util.common import resource_path
 import socketio, ssl, websocket, requests, json, time
 import base64
 from http.cookies import SimpleCookie
-from Audio import get_player
-from login import LoginClient
+from services.Audio import get_player
 import random
 import string
 
@@ -13,21 +12,20 @@ class AudioSocketClient:
     CLIENT_PING_SEC = 20  # 客戶端自送 keepalive，避免中間層(如 Nginx) 60s idle 斷線
     PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
-    def __init__(self, app_base, channel, username, password, gap_sec=1.0, cafile=None):
+    def __init__(self, app_base, channel, area, token, gap_sec=1.0,log_func=None, cafile=None, ):
         self.app_base = app_base
         self.channel = channel
-        self.username = username
-        self.password = password
+        self.areaList = area
+        self.token = token
+        self.log_func = log_func
         self.gap_sec = gap_sec
         # If a cafile path is provided, resolve it; otherwise use system trust store (verify=True)
         self.cafile = resource_path(cafile) if cafile else None
 
         self.player = get_player(gap_sec=self.gap_sec)
-        self.client = LoginClient(app_base=self.app_base, username=self.username, password=self.password, ca_verify=self.cafile)
-        self.TOKEN = self.client.get_token()
 
         self.AUTH_HEADERS = {
-            "Authorization": f"Bearer {self.TOKEN}",
+            "Authorization": f"Bearer {self.token}",
             "X-Requested-With": "XMLHttpRequest",
             "Accept": "application/json",
         }
@@ -104,20 +102,21 @@ class AudioSocketClient:
             return f"<fmt_err {e}>"
 
     def _on_connect(self):
-        print("[OK] socket connected:", self.sio.sid)
-        sub_payload = {
-            "channel": self.channel,
-            "auth": {
-                "headers": {
-                    # 只需要這幾個就夠了；視你的後端中介層而定
-                    "Authorization": self.AUTH_HEADERS.get("Authorization"),
-                    "Accept": "application/json",
-                    "X-Requested-With": "XMLHttpRequest",
+        self.log_func(f"[OK] socket 已連接: {self.sio.sid}")
+        for area in self.areaList:
+            sub_payload = {
+                "channel": f"private-audio.{area['code']}",
+                "auth": {
+                    "headers": {
+                        # 只需要這幾個就夠了；視你的後端中介層而定
+                        "Authorization": self.AUTH_HEADERS.get("Authorization"),
+                        "Accept": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                    }
                 }
             }
-        }
-        self.sio.emit("subscribe", sub_payload)
-        print("[OK] subscribed", self.channel)
+            self.sio.emit("subscribe", sub_payload)
+            self.log_func(f"[OK] 已訂閱: {area['name']}")
 
     class CatchAllNS(socketio.ClientNamespace):
         def __init__(self, outer, namespace):
@@ -136,12 +135,18 @@ class AudioSocketClient:
         chan = arg0 if isinstance(arg0, str) else None
         payload = arg1 if isinstance(arg1, dict) else (arg0 if isinstance(arg0, dict) else {})
 
-        if chan is not None and chan != self.channel:
+        channelMap = self.channel.get_channel_map()
+        self.log_func(f"收到廣播 區域：{chan}")
+        self.log_func(f"裝置頻道 map：{channelMap}")
+        channelName = next((k for k, v in channelMap.items() if v == chan), None)
+        device = next((k for k, v in channelMap.items() if v == chan), None)
+        if device is None:
             return  # ignore other channels
+        self.log_func(f"配對裝置：{device}")
 
-        self._handle_audio(payload)
+        self._handle_audio(payload, device)
 
-    def _handle_audio(self, msg):
+    def _handle_audio(self, msg, device):
         if isinstance(msg, dict) and "data" in msg and isinstance(msg["data"], dict):
             msg = msg["data"]
         try:
@@ -163,14 +168,15 @@ class AudioSocketClient:
                     if isinstance(b64, (bytes, bytearray)):
                         b64 = b64.decode('utf-8', 'ignore')
                     if isinstance(b64, str) and b64:
-                        self.player.enqueue_base64(b64, fmt)
+                        print(f"45: {device}")
+                        self.player.enqueue_base64(b64, device,fmt)
                 return
 
             b64 = (msg or {}).get('audio') or (msg or {}).get('base64')
             if isinstance(b64, (bytes, bytearray)):
                 b64 = b64.decode('utf-8', 'ignore')
             if isinstance(b64, str) and b64:
-                self.player.enqueue_base64(b64, fmt)
+                self.player.enqueue_base64(b64, device, fmt)
         except Exception as e:
             print("[handler-error broadcasting:message]", e)
 
@@ -223,11 +229,9 @@ if __name__ == "__main__":
     # Replace these placeholders with actual values before running
     APP_BASE = "https://tta-ad"
     CHANNEL = "private-audio.Lobby"
-    USERNAME = "456456"
-    PASSWORD = "456456"
     GAP_SEC = 1.0
     CAFILE = resource_path("app.crt")
 
-    client = AudioSocketClient(APP_BASE, CHANNEL, USERNAME, PASSWORD, gap_sec=GAP_SEC, cafile=CAFILE)
+    client = AudioSocketClient(APP_BASE, CHANNEL, gap_sec=GAP_SEC, cafile=CAFILE)
     client.connect()
     client.run_forever()

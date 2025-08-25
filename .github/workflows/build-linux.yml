@@ -1,4 +1,4 @@
-name: Build Linux
+name: Build Linux v2
 on:
   workflow_dispatch:
 jobs:
